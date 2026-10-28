@@ -1,55 +1,102 @@
+import pickle
+import shelve
+import os
 
-def filter_negatives(matrix):
-    """Filters out negative numbers (noise) from a 2D list using filter() and lambda."""
-    return [list(filter(lambda x: x >= 0, row)) for row in matrix]
+class UserSession:
+    """
+    A complex class instance representing a user's active session to demonstrate object persistence.
+    """
+    def __init__(self, username: str, role: str, settings: dict):
+        self.username = username
+        self.role = role
+        self.settings = settings
+        self.is_active = True
 
-def transform_matrix(matrix, transform_func):
-    """Applies a transformation function to all elements in a 2D list using map()."""
-    return [list(map(transform_func, row)) for row in matrix]
-
-def sort_records(records, sort_index, descending=False):
-    """Sorts a list of tuples based on a custom key index using sorted() and lambda."""
-    return sorted(records, key=lambda x: x[sort_index], reverse=descending)
-
-def main():
-    print("="*55)
-    print(" FUNCTIONAL DATA FILTERING & TRANSFORMATION SUITE")
-    print("="*55)
-
-    raw_matrix = [
-        [15, -4, 8, 21],
-        [-1, 0, -8, 7],
-        [44, -99, 32, -5]
-    ]
-    print("\n1. Original Raw Matrix (with negative noise):")
-    for row in raw_matrix: print(f"   {row}")
-
-    cleaned_matrix = filter_negatives(raw_matrix)
-    print("\n   Cleaned Matrix (Negatives filtered out):")
-    for row in cleaned_matrix: print(f"   {row}")
+    def __str__(self):
+        return f"User: {self.username} | Role: {self.role} | Settings: {self.settings} | Active: {self.is_active}"
 
 
-    squared_matrix = transform_matrix(cleaned_matrix, lambda x: x ** 2)
-    print("\n2. Transformed Matrix (Cleaned values squared via map):")
-    for row in squared_matrix: print(f"   {row}")
+def save_with_pickle(obj: object, filepath: str) -> None:
+    """
+    Serializes a Python object to a binary file using pickle.
+    Input:
+        obj (object): The Python object to serialize.
+        filepath (str): The destination file path.
+    Output:
+        None (Writes binary stream safely to disk)
+    """
+    with open(filepath, 'wb') as file:
+        pickle.dump(obj, file)
+    print(f"[*] Object successfully pickled to '{filepath}'")
 
-    data_sequences = [
-        (401, 88.5, "Delta"),
-        (402, 94.2, "Alpha"),
-        (403, 71.8, "Gamma"),
-        (404, 91.1, "Beta")
-    ]
-    
-    print("\n3. Original Data Sequences (Tuples):")
-    for record in data_sequences: print(f"   {record}")
 
-    sorted_by_measurement = sort_records(data_sequences, sort_index=1, descending=True)
-    print("\n   Sorted by Measurement (Descending using sorted & lambda):")
-    for record in sorted_by_measurement: print(f"   {record}")
+def load_with_pickle(filepath: str) -> object:
+    """
+    Deserializes a Python object from a binary file using pickle.
+    Input:
+        filepath (str): The source file path to read from.
+    Output:
+        object: The restored Python object.
+    """
+    with open(filepath, 'rb') as file:
+        obj = pickle.load(file)
+    print(f"[*] Object successfully loaded from '{filepath}'")
+    return obj
 
-    sorted_by_category = sort_records(data_sequences, sort_index=2)
-    print("\n   Sorted by Category Name (Alphabetical using sorted & lambda):")
-    for record in sorted_by_category: print(f"   {record}")
+
+def save_with_shelve(db_path: str, key: str, obj: object) -> None:
+    """
+    Persists a Python object to disk using the shelve dictionary-like database.
+    Input:
+        db_path (str): The path to the shelve database.
+        key (str): The string key to store the object under.
+        obj (object): The Python object to store.
+    Output:
+        None (Writes safely to disk)
+    """
+    with shelve.open(db_path) as db:
+        db[key] = obj
+    print(f"[*] Object stored in shelve DB '{db_path}' under key '{key}'")
+
+
+def load_with_shelve(db_path: str, key: str) -> object:
+    """
+    Restores a Python object from a shelve database using its key.
+    Input:
+        db_path (str): The path to the shelve database.
+        key (str): The string key associated with the stored object.
+    Output:
+        object: The restored Python object, or None if not found.
+    """
+    with shelve.open(db_path) as db:
+        obj = db.get(key)
+    print(f"[*] Object retrieved from shelve DB '{db_path}' with key '{key}'")
+    return obj
+
 
 if __name__ == "__main__":
-    main()
+    print("--- Object Persistence Engine via Serialization ---\n")
+    
+    session1 = UserSession("Alice", "Admin", {"theme": "dark", "notifications": True})
+    session2 = UserSession("Bob", "Guest", {"theme": "light", "notifications": False})
+    
+    pickle_file = "user_session.pkl"
+    shelve_db = "app_database"
+    
+    print("1. Testing Pickle Serialization:")
+    save_with_pickle(session1, pickle_file)
+    
+    restored_session1 = load_with_pickle(pickle_file)
+    print(f"Restored Object state: {restored_session1}\n")
+    print("2. Testing Shelve Database:")
+    save_with_shelve(shelve_db, "session_bob", session2)
+    
+    restored_session2 = load_with_shelve(shelve_db, "session_bob")
+    print(f"Restored Object state: {restored_session2}\n")
+    
+    if os.path.exists(pickle_file):
+        os.remove(pickle_file)
+    
+    for ext in ['', '.db', '.bak', '.dir', '.dat']:
+        if os.path.exists(shelve_db + ext):
+            os.remove(shelve_db + ext)
